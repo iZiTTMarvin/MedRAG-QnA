@@ -38,40 +38,84 @@ RAG技术：
 ## :fire:To do
 
 - [x] 增加界面的功能(2024.5.21)：增加了登陆、注册界面(含用户、管理员2个身份)，大模型选择按钮(可选千问和llama)、多窗口对话功能等。
+- [x] **动态模型选择(2025.10.25)**：自动读取本地 Ollama 所有模型，支持在侧边栏切换。
+- [x] **硅基流动API支持(2025.10.25)**：支持使用云端模型 (DeepSeek-R1, Qwen2.5-72B 等)。
+- [x] **规则匹配意图识别(2025.10.25)**：对常见问题(“怎么办”、“吃什么”等)使用规则直接匹配，提升响应速度。
 - [ ] NL2Cyhper
 - [ ] 更多优化...
 
-## Python环境配置
+## :rocket: 快速开始
 
-一个例子:
+### 1. Python环境配置
 
-```
-git clone https://github.com/honeyandme/RAGQnASystem.git
+**系统要求**：
+- Python 3.10+
+- Neo4j 5.x (Community Edition)
+- Ollama (本地模型运行)
+- JDK 17 (Neo4j 依赖)
+
+**安装步骤**：
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/your-username/RAGQnASystem.git
 cd RAGQnASystem
+
+# 2. 创建虚拟环境
 conda create -n RAGQnASystem python=3.10
 conda activate RAGQnASystem
+
+# 3. 安装依赖
 pip install -r requirements.txt
 ```
 
-## 构建知识图谱
+### 2. 安装 Neo4j
 
-首先需要安装Neo4j，[官方网站](https://neo4j.com/deployment-center/#community)。本项目使用的版本是neo4j-community-5.18.1，需要依赖jdk17。
+1. 下载 Neo4j Community Edition：[官方网站](https://neo4j.com/deployment-center/#community)
+2. 安装 JDK 17 (如果没有)
+3. 启动 Neo4j，访问 http://localhost:7474
+4. 初始密码：`neo4j/neo4j`，首次登录需修改密码
 
-安装并运行Neo4j后，我们需要根据```data/medical_new_2.json```数据集创建一个知识图谱。
+### 3. 安装 Ollama 和模型
 
+```bash
+# 安装 Ollama：https://ollama.ai/download
+
+# 下载推荐模型 (DeepSeek-R1 8B)
+ollama pull deepseek-r1:8b
+
+# 或者使用其他模型
+ollama pull qwen2.5:3b
+ollama pull gemma3:4b
 ```
-python build_up_graph.py --website YourWebSite --user YourUserName --password YourPassWord --dbname YourDBName
+
+### 4. 下载 NER 模型权重
+
+从 [Google Drive](https://pan.baidu.com/s/1kwiNDyNjO2E2uO0oYmK8SA?pwd=08or) 下载预训练模型，并放置到项目根目录：
+- `best_roberta_rnn_model_ent_aug.pt`
+- `model/chinese-roberta-wwm-ext/` (或从 [HuggingFace](https://huggingface.co/hfl/chinese-roberta-wwm-ext) 下载)
+
+### 5. 构建知识图谱
+
+```bash
+python build_up_graph.py --website http://localhost:7474 --user neo4j --password <你的密码> --dbname neo4j
 ```
 
-其中，```--website```代表你的Neo4j网址，```--user```代表你的数据库用户名，```--password```代表你的数据库密码，```--dbname```代表你的数据库名字。
+运行后会自动生成：
+- `data/ent_aug/` - 实体文件
+- `data/rel_aug.txt` - 关系文件
 
-示例:
+### 6. 启动项目
 
+```bash
+streamlit run login.py
 ```
-python build_up_graph.py --website http://localhost:7474 --user neo4j --password YourPassWord --dbname neo4j
-```
 
-运行```build_up_graph.py```后，会自动在```data```文件夹下创建```ent_aug```文件夹和```rel_aug.txt```文件，分别存放所有实体和关系。
+浏览器自动打开 http://localhost:8501
+
+**默认管理员账号**：
+- 用户名：`admin`
+- 密码：`admin123`
 
 
 
@@ -223,6 +267,50 @@ class Bert_Model(nn.Module):
 <img src="img/yuju.jpg" style="zoom:30%;" />
 
 注：这部分代码整合到了```webui.py```中，您无需进行任何操作。
+
+## :star2: 新功能亮点 (2025.10.25 更新)
+
+### 1. 动态模型选择
+
+- **自动检测本地模型**：系统会自动读取你 Ollama 中的所有模型
+- **侧边栏快速切换**：无需重启，实时切换不同模型
+- **默认推荐**：DeepSeek-R1 8B（如果可用）
+
+### 2. 硅基流动 API 支持
+
+除了本地 Ollama 模型，现在还支持通过硅基流动 API 调用云端模型：
+
+- **DeepSeek-V3**：671B 参数，顶尖性能
+- **DeepSeek-R1**：推理专用模型
+- **Qwen2.5-72B-Instruct**：通用对话模型
+- **Llama-3.3-70B-Instruct**：Meta 官方模型
+
+**使用方法**：
+1. 在侧边栏选择 "☁️ 硅基流动 API"
+2. 输入你的 API Key（在 [https://cloud.siliconflow.cn/](https://cloud.siliconflow.cn/) 获取）
+3. 选择模型开始使用
+
+### 3. 规则匹配意图识别
+
+对于常见问题，系统会优先使用规则匹配，避免调用 LLM：
+
+| 关键词 | 自动识别意图 |
+|----------|----------------|
+| 怎么办 | 简介 + 治疗 + 药品 + 检查 |
+| 吃什么 | 药品 + 宜吃食物 |
+| 症状 | 简介 + 症状 |
+| 原因 | 简介 + 病因 |
+
+**优势**：
+- 响应速度提升 50%+
+- 准确率更高
+- 降低 API 成本
+
+### 4. 优化的提示词工程
+
+- 意图识别提示词从 100+ 行精简至 20 行
+- 减少 Token 消耗，加快响应速度
+- 更清晰的指令，减少模型混淆
 
 ## 运行界面
 

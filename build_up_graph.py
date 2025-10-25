@@ -1,59 +1,86 @@
 import os
 import re
-import py2neo
+from neo4j import GraphDatabase
 from tqdm import tqdm
 import argparse
 
 
 #导入普通实体
-def import_entity(client,type,entity):
-    def create_node(client,type,name):
-        order = """create (n:%s{名称:"%s"})"""%(type,name)
-        client.run(order)
+def import_entity(driver, type, entity):
+    def create_node(driver, type, name):
+        order = """create (n:%s{名称:"%s"})""" % (type, name)
+        with driver.session() as session:
+            session.run(order)
 
     print(f'正在导入{type}类数据')
     for en in tqdm(entity):
-        create_node(client,type,en)
+        create_node(driver, type, en)
+
 #导入疾病类实体
-def import_disease_data(client,type,entity):
+def import_disease_data(driver, type, entity):
     print(f'正在导入{type}类数据')
     for disease in tqdm(entity):
-        node = py2neo.Node(type,
-                           名称=disease["名称"],
-                           疾病简介=disease["疾病简介"],
-                           疾病病因=disease["疾病病因"],
-                           预防措施=disease["预防措施"],
-                           治疗周期=disease["治疗周期"],
-                           治愈概率=disease["治愈概率"],
-                           疾病易感人群=disease["疾病易感人群"],
+        order = """
+        CREATE (n:%s {
+            名称: $name,
+            疾病简介: $desc,
+            疾病病因: $cause,
+            预防措施: $prevent,
+            治疗周期: $cure_lasttime,
+            治愈概率: $cured_prob,
+            疾病易感人群: $easy_get
+        })
+        """ % type
+        with driver.session() as session:
+            session.run(order,
+                       name=disease["名称"],
+                       desc=disease["疾病简介"],
+                       cause=disease["疾病病因"],
+                       prevent=disease["预防措施"],
+                       cure_lasttime=disease["治疗周期"],
+                       cured_prob=disease["治愈概率"],
+                       easy_get=disease["疾病易感人群"])
 
-                           )
-        client.create(node)
-
-def create_all_relationship(client,all_relationship):
-    def create_relationship(client,type1, name1,relation, type2,name2):
-        order = """match (a:%s{名称:"%s"}),(b:%s{名称:"%s"}) create (a)-[r:%s]->(b)"""%(type1,name1,type2,name2,relation)
-        client.run(order)
+def create_all_relationship(driver, all_relationship):
+    def create_relationship(driver, type1, name1, relation, type2, name2):
+        order = """match (a:%s{名称:"%s"}),(b:%s{名称:"%s"}) create (a)-[r:%s]->(b)""" % (type1, name1, type2, name2, relation)
+        with driver.session() as session:
+            session.run(order)
     print("正在导入关系.....")
-    for type1, name1,relation, type2,name2  in tqdm(all_relationship):
-        create_relationship(client,type1, name1,relation, type2,name2)
+    for type1, name1, relation, type2, name2 in tqdm(all_relationship):
+        create_relationship(driver, type1, name1, relation, type2, name2)
 
 if __name__ == "__main__":
     #连接数据库的一些参数
     parser = argparse.ArgumentParser(description="通过medical.json文件,创建一个知识图谱")
     parser.add_argument('--website', type=str, default='http://localhost:7474', help='neo4j的连接网站')
     parser.add_argument('--user', type=str, default='neo4j', help='neo4j的用户名')
-    parser.add_argument('--password', type=str, default='wei8kang7.long', help='neo4j的密码')
+    parser.add_argument('--password', type=str, default='neo4j', help='neo4j的密码')
     parser.add_argument('--dbname', type=str, default='neo4j', help='数据库名称')
     args = parser.parse_args()
 
     #连接...
-    client = py2neo.Graph(args.website, user=args.user, password=args.password, name=args.dbname)
+    try:
+        # 使用更稳定的连接方式
+        from neo4j import GraphDatabase
+        driver = GraphDatabase.driver("bolt://localhost:7687", auth=(args.user, args.password))
+        # 测试连接
+        with driver.session() as session:
+            session.run("RETURN 1")
+        print("Neo4j连接成功!")
+        client = driver
+    except Exception as e:
+        print(f"Neo4j连接失败: {e}")
+        print("请检查:")
+        print("1. Neo4j是否在localhost:7687端口运行")
+        print("2. 用户名和密码是否正确")
+        exit(1)
 
     #将数据库中的内容删光
     is_delete = input('注意:是否删除neo4j上的所有实体 (y/n):')
-    if is_delete=='y':
-        client.run("match (n) detach delete (n)")
+    if is_delete == 'y':
+        with client.session() as session:
+            session.run("match (n) detach delete (n)")
 
     with open('./data/medical_new_2.json','r',encoding='utf-8') as f:
         all_data = f.read().split('\n')
@@ -170,7 +197,7 @@ if __name__ == "__main__":
         if k!="疾病":
             import_entity(client,k,all_entity[k])
         else:
-            
+  
             import_disease_data(client,k,all_entity[k])
     create_all_relationship(client,relationship)
 

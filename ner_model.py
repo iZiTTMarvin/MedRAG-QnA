@@ -95,7 +95,7 @@ def find_entities(tag):
 
 class tfidf_alignment():
     def __init__(self):
-        eneities_path = os.path.join('data', 'ent_aug')
+        eneities_path = os.path.join('data/ent_aug')
         files = os.listdir(eneities_path)
         files = [docu for docu in files if '.py' not in docu]
 
@@ -288,8 +288,8 @@ def get_ner_result(model,tokenizer,sen,rule,tfidf_r,device,idx2tag):
     return tfidf_result
 
 if __name__ == "__main__":
-    all_text,all_label = get_data(os.path.join('data','ner_data_aug.txt'))
-    train_text, dev_text, train_label, dev_label = train_test_split(all_text, all_label, test_size = 0.02, random_state = 42)
+    all_text, all_label = get_data('大创项目：医疗问答系统/data/ner_data_aug.txt')
+    train_text, dev_text, train_label, dev_label = train_test_split(all_text, all_label, test_size=0.02, random_state=42)
 
     #加载太慢了，预处理一下
     if os.path.exists('tmp_data/tag2idx.npy'):
@@ -308,7 +308,7 @@ if __name__ == "__main__":
     batch_size = 60
     hidden_size = 128
     bi = True
-    model_name='model/chinese-roberta-wwm-ext'#bert_base_chinese
+    model_name ='model/chinese-roberta-wwm-ext'
     tokenizer = BertTokenizer.from_pretrained(model_name)
     lr =1e-5
     is_train=True

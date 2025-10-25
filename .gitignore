@@ -1,4 +1,58 @@
-neo4j-community-5.18.1/
-model/chinese-roberta-wwm-ext/
-model/best_roberta_rnn_model_ent_aug.pt
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+ragqa_env/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Project specific - exclude internal docs
+WARP.md
+CLAUDE.md
+.claude/
+
+# Test files
+test_*.py
+check_*.py
+
+# Finetune demo (not needed for main project)
+finetune_demo/
+
+# Temporary data
+tmp_data/user_credentials.json
+ner_result/
+
+# Model files (too large for git)
+model/chinese-roberta-wwm-ext/
+best_roberta_rnn_model_ent_aug.pt
+
+# Generated data (will be created by build_up_graph.py)
+data/ent_aug/
+data/rel_aug.txt
+
+# Environment variables
+.env
+
+# Logs
+*.log
+logs/
+
+# Neo4j
+neo4j-community-5.18.1/
+.neo4j/
+
+# Backup files
+*.bak
+*.backup

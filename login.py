@@ -1,6 +1,29 @@
 import streamlit as st
 from user_data_storage import credentials, write_credentials, storage_file, Credentials
 from webui import main
+from neo4j import GraphDatabase
+import logging
+
+# 配置日志
+logger = logging.getLogger(__name__)
+
+# Neo4j 配置
+NEO4J_URI = "bolt://localhost:7687"
+NEO4J_USER = "neo4j"
+NEO4J_PASSWORD = "asd2528836683"
+
+@st.cache_resource
+def get_neo4j_driver():
+    """获取 Neo4j 驱动实例（缓存）"""
+    try:
+        driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+        driver.verify_connectivity()
+        logger.info("Neo4j 连接成功")
+        return driver
+    except Exception as e:
+        logger.error(f"Neo4j 连接失败：{e}")
+        return None
+
 # 初始化会话状态
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
@@ -8,6 +31,9 @@ if 'admin' not in st.session_state:
     st.session_state.admin = False
 if 'usname' not in st.session_state:
     st.session_state.usname = ""
+if 'neo4j_driver' not in st.session_state:
+    st.session_state.neo4j_driver = get_neo4j_driver()
+
 def login_page():
     with st.form("login_form"):
         st.title("登录")
@@ -22,7 +48,7 @@ def login_page():
                 st.session_state.logged_in = True
                 st.session_state.admin = user_cred.is_admin
                 st.session_state.usname = username
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("用户名或密码错误，请重新输入。")
 
@@ -42,7 +68,7 @@ def register_page():
                 credentials[new_username] = new_user
                 write_credentials(storage_file, credentials)
                 st.success(f"用户 {new_username} 注册成功！请登录。")
-                st.experimental_rerun()
+                st.rerun()
 
 if __name__ == "__main__":
     if not st.session_state.logged_in:
@@ -54,4 +80,4 @@ if __name__ == "__main__":
         elif app_mode == "注册":
             register_page()
     else:
-        main(st.session_state.admin,st.session_state.usname)
+        main(st.session_state.admin, st.session_state.usname)
