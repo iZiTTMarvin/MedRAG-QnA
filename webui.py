@@ -123,7 +123,13 @@ def add_shuxing_prompt(entity,shuxing,client):
         
     try:
         sql_q = "match (a:疾病{名称:'%s'}) return a.%s" % (entity,shuxing)
-        res = client.run(sql_q).data()[0].values()
+        res_data = client.run(sql_q).data()
+        if not res_data:
+            warning_msg = f"知识图谱中未找到{entity}的{shuxing}信息。"
+            st.warning(warning_msg)
+            return f"<提示>用户对{entity}可能有查询{shuxing}需求，但知识库暂无信息。</提示>"
+
+        res = res_data[0].values()
         add_prompt+=f"<提示>"
         add_prompt+=f"用户对{entity}可能有查询{shuxing}需求，知识库内容如下："
         if len(res)>0:
@@ -131,6 +137,7 @@ def add_shuxing_prompt(entity,shuxing,client):
             add_prompt+=join_res
         else:
             add_prompt+="图谱中无信息，查找失败。"
+            st.warning(f"知识图谱中{entity}的{shuxing}字段为空。")
         add_prompt+=f"</提示>"
     except Exception as e:
         add_prompt += f"<提示>"
@@ -173,12 +180,20 @@ def generate_prompt(response,query,client,bert_model, bert_tokenizer,rule, tfidf
         if client is not None:
             try:
                 sql_q = "match (a:疾病)-[r:疾病的症状]->(b:疾病症状 {名称:'%s'}) return a.名称" % (entities['疾病症状'])
-                res = list(client.run(sql_q).data()[0].values())
-                # print('res=',res)
-                if len(res)>0:
-                    entities['疾病'] = random.choice(res)
-                    all_en = "、".join(res)
-                    prompt+=f"<提示>用户有{entities['疾病症状']}的情况，知识库推测其可能是得了{all_en}。请注意这只是一个推测，你需要明确告知用户这一点。</提示>"
+                res_data = client.run(sql_q).data()
+                if not res_data:
+                    st.warning(f"知识图谱缺少症状[{entities['疾病症状']}]到疾病的关联数据。")
+                    prompt+=f"<提示>用户有{entities['疾病症状']}的情况，但知识库缺少相关关联数据，无法推测相关疾病。</提示>"
+                else:
+                    res = list(res_data[0].values())
+                    # print('res=',res)
+                    if len(res)>0:
+                        entities['疾病'] = random.choice(res)
+                        all_en = "、".join(res)
+                        prompt+=f"<提示>用户有{entities['疾病症状']}的情况，知识库推测其可能是得了{all_en}。请注意这只是一个推测，你需要明确告知用户这一点。</提示>"
+                    else:
+                        st.warning(f"症状[{entities['疾病症状']}]关联疾病字段为空。")
+                        prompt+=f"<提示>用户有{entities['疾病症状']}的情况，但知识库缺少相关关联数据，无法推测相关疾病。</提示>"
             except Exception as e:
                 prompt+=f"<提示>用户有{entities['疾病症状']}的情况，但查询知识图谱时发生错误，无法推测相关疾病。</提示>"
         else:
@@ -248,14 +263,20 @@ def generate_prompt(response,query,client,bert_model, bert_tokenizer,rule, tfidf
         if client is not None and '药品' in entities:
             try:
                 sql_q = "match (a:药品商)-[r:生产]->(b:药品{名称:'%s'}) return a.名称" % (entities['药品'])
-                res = client.run(sql_q).data()[0].values()
-                prompt+=f"<提示>"
-                prompt+=f"用户对{entities['药品']}可能有查询药品生产商的需求，知识图谱内容如下："
-                if len(res)>0:
-                    prompt+="".join(res)
+                res_data = client.run(sql_q).data()
+                if not res_data:
+                    st.warning(f"知识图谱缺少药品[{entities['药品']}]的生产商关联数据。")
+                    prompt+=f"<提示>用户对{entities['药品']}可能有查询药品生产商的需求，但知识库缺少相关数据。</提示>"
                 else:
-                    prompt+="图谱中无信息，查找失败"
-                prompt+=f"</提示>"
+                    res = res_data[0].values()
+                    prompt+=f"<提示>"
+                    prompt+=f"用户对{entities['药品']}可能有查询药品生产商的需求，知识图谱内容如下："
+                    if len(res)>0:
+                        prompt+="".join(res)
+                    else:
+                        prompt+="图谱中无信息，查找失败"
+                        st.warning(f"药品[{entities['药品']}]的生产商字段为空。")
+                    prompt+=f"</提示>"
             except Exception as e:
                 prompt+=f"<提示>查询药品生产商时发生错误：{str(e)[:30]}</提示>"
         else:
